@@ -1,0 +1,260 @@
+const express = require("express");
+const cors = require("cors");
+const pool = require("./db");
+const app = express();
+
+app.use(express.json());
+app.use(
+  cors({
+    methods: ["GET", "POST", "OPTIONS"],
+    origin: "*",
+  })
+);
+
+app.get("/nutzer", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM Nutzer ORDER BY id ASC");
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.post("/nutzer", async (req, res) => {
+  try {
+    const { vorname, nachname } = req.body;
+    const newUser = await pool.query(
+      "INSERT INTO Nutzer (vorname, nachname) VALUES ($1, $2) RETURNING *",
+      [vorname, nachname] // Use the array to prevent SQL Injection
+    );
+    res.json(newUser.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.get("/haushalt/:nutzerId", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT * FROM Haushalt h
+      LEFT JOIN Haushalt_Zuordnung hz on h.id = hz.Haushalt_Id
+      WHERE hz.Nutzer_Id = $1
+      ORDER BY h.id ASC
+    `,
+      [req.params.nutzerId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.get("/haushaltzuordnung/:haushalt_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT * FROM Haushalt_Zuordnung hz
+      JOIN Nutzer n on hz.nutzer_id = n.id
+      WHERE hz.haushalt_id = $1
+      ORDER BY hz.id ASC
+    `,
+      [req.params.haushalt_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.post("/haushalt", async (req, res) => {
+  try {
+    const { nutzerId, name, adresse } = req.body;
+    const newHaushalt = await pool.query(
+      "INSERT INTO Haushalt (name, adresse) VALUES ($1, $2) RETURNING *",
+      [name, adresse] // Use the array to prevent SQL Injection
+    );
+    const zuordnung = await pool.query(
+      "INSERT INTO Haushalt_Zuordnung (nutzer_id, haushalt_id, verwaltet) VALUES ($1, $2, $3) RETURNING *",
+      [nutzerId, newHaushalt.rows[0].id, true] // Use the array to prevent SQL Injection
+    );
+
+    res.json({ newHaushalt, zuordnung });
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+app.post("/haushaltzuordnung/:haushalt_id", async (req, res) => {
+  try {
+    const { nutzerId } = req.body;
+    const zuordnung = await pool.query(
+      "INSERT INTO Haushalt_Zuordnung (nutzer_id, haushalt_id, verwaltet) VALUES ($1, $2, $3) RETURNING *",
+      [nutzerId, req.params.haushalt_id, false] // Use the array to prevent SQL Injection
+    );
+
+    res.json({ zuordnung });
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+app.get("/raum/:haushalt_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM Raum WHERE Haushalt_id = $1 ORDER BY id ASC",
+      [req.params.haushalt_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
+
+app.post("/raum/:haushalt_id", async (req, res) => {
+  try {
+    const { name, raum_typ_id } = req.body;
+    const newRaum = await pool.query(
+      "INSERT INTO Raum (name, haushalt_id, raum_typ_id) VALUES ($1, $2, $3) RETURNING *",
+      [name, req.params.haushalt_id, raum_typ_id] // Use the array to prevent SQL Injection
+    );
+    res.json(newRaum.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.get("/geraet/:haushalt_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT g.* FROM Geraet g
+      LEFT JOIN Raum r ON g.Raum_Id = r.id
+      WHERE r.Haushalt_Id = $1
+      ORDER BY g.id ASC
+    `,
+      [req.params.haushalt_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.post("/geraet/:raum_id", async (req, res) => {
+  try {
+    const { name, geraet_typ_id, schnittstelle } = req.body;
+    const newGerät = await pool.query(
+      "INSERT INTO Geraet (name, geraet_typ_id, schnittstelle, erstellt_am, raum_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [name, geraet_typ_id, schnittstelle, new Date(), req.params.raum_id] // Use the array to prevent SQL Injection
+    );
+    res.json(newGerät.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.get("/schaltvorgaenge/:gerät_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT * FROM Schaltvorgang s
+      LEFT JOIN Zustand z ON s.zustand_id = z.id
+      WHERE s.geraet_id = $1
+      ORDER BY s.zeitpunkt DESC
+    `,
+      [req.params.gerät_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.post("/sensor", async (req, res) => {
+  try {
+    const { sensor_typ_id, geraet_id } = req.body;
+    const newGerät = await pool.query(
+      "INSERT INTO Sensor (sensor_typ_id, erstellt_am, geraet_id) VALUES ($1, $2, $3) RETURNING *",
+      [sensor_typ_id, new Date(), geraet_id] // Use the array to prevent SQL Injection
+    );
+    res.json(newGerät.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.get("/sensor/:geraet_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT * FROM Sensor
+      WHERE geraet_id = $1
+      ORDER BY id ASC
+    `,
+      [req.params.geraet_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.get("/messungen/:sensor_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT * FROM Messwert
+      WHERE sensor_id = $1
+      ORDER BY zeitpunkt DESC
+    `,
+      [req.params.sensor_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.get("/typen", async (req, res) => {
+  try {
+    const raum_typ = (
+      await pool.query("SELECT * FROM Raum_Typ ORDER BY id ASC")
+    ).rows;
+    const geraet_typ = (
+      await pool.query("SELECT * FROM Geraet_Typ ORDER BY id ASC")
+    ).rows;
+    const schaltvorgang_typ = (
+      await pool.query("SELECT * FROM Schaltvorgang_Typ ORDER BY id ASC")
+    ).rows;
+    const sensor_typ = (
+      await pool.query("SELECT * FROM Sensor_Typ ORDER BY id ASC")
+    ).rows;
+    const alarm_typ = (
+      await pool.query("SELECT * FROM Alarm_Typ ORDER BY id ASC")
+    ).rows;
+    const zustand = (await pool.query("SELECT * FROM Zustand ORDER BY id ASC"))
+      .rows;
+
+    res.json({
+      raum_typ,
+      geraet_typ,
+      schaltvorgang_typ,
+      sensor_typ,
+      alarm_typ,
+      zustand,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+app.listen(3000, () => console.log("Server running on port 3000"));
