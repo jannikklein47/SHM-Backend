@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "OPTIONS", "PATCH"],
     origin: "*",
   })
 );
@@ -85,6 +85,24 @@ app.post("/haushalt", async (req, res) => {
     res.json({ newHaushalt, zuordnung });
   } catch (err) {
     console.error(err);
+  }
+});
+
+
+app.patch("/haushalt/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    
+    const updatedHaushalt = await pool.query(
+      "UPDATE Haushalt SET name = $1 WHERE id = $2 RETURNING *",
+      [name, id]
+    );
+
+    res.json(updatedHaushalt.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Serverfehler beim Aktualisieren");
   }
 });
 
