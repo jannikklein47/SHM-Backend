@@ -176,6 +176,23 @@ app.post("/geraet/:raum_id", async (req, res) => {
   }
 });
 
+app.patch("/geraet/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    const updatedGerät = await pool.query(
+      "UPDATE Geraet SET name = $1 WHERE id = $2 RETURNING *",
+      [name, id]
+    );
+
+    res.json(updatedGerät.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Serverfehler beim Aktualisieren");
+  }
+}); 
+
 app.get("/schaltvorgaenge/:gerät_id", async (req, res) => {
   try {
     const result = await pool.query(
