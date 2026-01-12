@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "OPTIONS", "PATCH"],
     origin: "*",
   })
 );
@@ -16,8 +16,8 @@ app.get("/nutzer", async (req, res) => {
     const result = await pool.query("SELECT * FROM Nutzer ORDER BY id ASC");
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -29,8 +29,9 @@ app.post("/nutzer", async (req, res) => {
       [vorname, nachname] // Use the array to prevent SQL Injection
     );
     res.json(newUser.rows[0]);
-  } catch (err) {
-    console.error(err.message);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -47,8 +48,8 @@ app.get("/haushalt/:nutzerId", async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -65,8 +66,8 @@ app.get("/haushaltzuordnung/:haushalt_id", async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -83,8 +84,27 @@ app.post("/haushalt", async (req, res) => {
     );
 
     res.json({ newHaushalt, zuordnung });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+  }
+});
+
+
+app.patch("/haushalt/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    
+    const updatedHaushalt = await pool.query(
+      "UPDATE Haushalt SET name = $1 WHERE id = $2 RETURNING *",
+      [name, id]
+    );
+
+    res.json(updatedHaushalt.rows[0]);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -97,8 +117,10 @@ app.post("/haushaltzuordnung/:haushalt_id", async (req, res) => {
     );
 
     res.json({ zuordnung });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+
   }
 });
 
@@ -110,7 +132,8 @@ app.get("/raum/:haushalt_id", async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -122,8 +145,27 @@ app.post("/raum/:haushalt_id", async (req, res) => {
       [name, req.params.haushalt_id, raum_typ_id] // Use the array to prevent SQL Injection
     );
     res.json(newRaum.rows[0]);
-  } catch (err) {
-    console.error(err.message);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+
+  }
+});
+
+app.patch("/raum/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    const updatedRaum = await pool.query(
+      "UPDATE Raum SET name = $1 WHERE id = $2 RETURNING *",
+      [name, id]
+    );
+
+    res.json(updatedRaum.rows[0]);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -140,8 +182,8 @@ app.get("/geraet/:haushalt_id", async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -153,10 +195,29 @@ app.post("/geraet/:raum_id", async (req, res) => {
       [name, geraet_typ_id, schnittstelle, new Date(), req.params.raum_id] // Use the array to prevent SQL Injection
     );
     res.json(newGerät.rows[0]);
-  } catch (err) {
-    console.error(err.message);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+
   }
 });
+
+app.patch("/geraet/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    const updatedGerät = await pool.query(
+      "UPDATE Geraet SET name = $1 WHERE id = $2 RETURNING *",
+      [name, id]
+    );
+
+    res.json(updatedGerät.rows[0]);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+  }
+}); 
 
 app.get("/schaltvorgaenge/:gerät_id", async (req, res) => {
   try {
@@ -171,8 +232,8 @@ app.get("/schaltvorgaenge/:gerät_id", async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -184,8 +245,9 @@ app.post("/sensor", async (req, res) => {
       [sensor_typ_id, new Date(), geraet_id] // Use the array to prevent SQL Injection
     );
     res.json(newGerät.rows[0]);
-  } catch (err) {
-    console.error(err.message);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -201,8 +263,8 @@ app.get("/sensor/:geraet_id", async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -218,8 +280,8 @@ app.get("/messungen/:sensor_id", async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
@@ -252,8 +314,8 @@ app.get("/typen", async (req, res) => {
       zustand,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).send(error);
+    console.error(error.message);
+    res.status(500).send(error.message);
   }
 });
 
