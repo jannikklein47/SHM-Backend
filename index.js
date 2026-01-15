@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    methods: ["GET", "POST", "OPTIONS", "PATCH"],
+    methods: ["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
     origin: "*",
   })
 );
@@ -90,12 +90,11 @@ app.post("/haushalt", async (req, res) => {
   }
 });
 
-
 app.patch("/haushalt/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { name } = req.body;
-    
+
     const updatedHaushalt = await pool.query(
       "UPDATE Haushalt SET name = $1 WHERE id = $2 RETURNING *",
       [name, id]
@@ -120,14 +119,13 @@ app.post("/haushaltzuordnung/:haushalt_id", async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);
-
   }
 });
 
 app.get("/raum/:haushalt_id", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM Raum WHERE Haushalt_id = $1 ORDER BY id ASC",
+      "SELECT * FROM Raum WHERE Haushalt_id = $1 and deleted = false ORDER BY id ASC",
       [req.params.haushalt_id]
     );
     res.json(result.rows);
@@ -148,7 +146,6 @@ app.post("/raum/:haushalt_id", async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);
-
   }
 });
 
@@ -175,12 +172,28 @@ app.get("/geraet/:haushalt_id", async (req, res) => {
       `
       SELECT g.* FROM Geraet g
       LEFT JOIN Raum r ON g.Raum_Id = r.id
-      WHERE r.Haushalt_Id = $1
+      WHERE r.Haushalt_Id = $1 AND g.deleted = false
       ORDER BY g.id ASC
     `,
       [req.params.haushalt_id]
     );
     res.json(result.rows);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+  }
+});
+
+app.get("/geraetId/:id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT * FROM Geraet
+      WHERE id = $1 and deleted = false
+    `,
+      [req.params.id]
+    );
+    res.json(result.rows[0]);
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);
@@ -198,7 +211,6 @@ app.post("/geraet/:raum_id", async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);
-
   }
 });
 
@@ -217,7 +229,7 @@ app.patch("/geraet/:id", async (req, res) => {
     console.error(error.message);
     res.status(500).send(error.message);
   }
-}); 
+});
 
 app.get("/schaltvorgaenge/:gerät_id", async (req, res) => {
   try {
@@ -313,6 +325,48 @@ app.get("/typen", async (req, res) => {
       alarm_typ,
       zustand,
     });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+  }
+});
+
+app.delete("/haushalt/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const haushalt = await pool.query(
+      "DELETE FROM Haushalt WHERE id = $1 RETURNING *",
+      [id]
+    );
+    res.json(haushalt.rows[0]);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+  }
+});
+
+app.delete("/raum/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const raum = await pool.query(
+      "UPDATE Raum SET deleted = true WHERE id = $1 RETURNING *",
+      [id]
+    );
+    res.json(raum.rows[0]);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+  }
+});
+
+app.delete("/geraet/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const geraet = await pool.query(
+      "UPDATE Geraet SET deleted = true WHERE id = $1 RETURNING *",
+      [id]
+    );
+    res.json(geraet.rows[0]);
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);

@@ -64,16 +64,17 @@ CREATE TABLE Haushalt (
 
 CREATE TABLE Haushalt_Zuordnung (
 	id	SERIAL primary key not null UNIQUE,
-	Nutzer_Id INTEGER not null references Nutzer(id),
-	Haushalt_Id INTEGER not null references Haushalt(id),
+	Nutzer_Id INTEGER not null references Nutzer(id) ON DELETE CASCADE,
+	Haushalt_Id INTEGER not null references Haushalt(id) ON DELETE CASCADE,
 	Verwaltet BOOLEAN not null
 );
 
 CREATE TABLE Raum (
 	id	SERIAL primary key not null UNIQUE,
 	Name VARCHAR(256) not null,
-	Haushalt_Id INTEGER not null references Haushalt(id),
-	Raum_Typ_Id INTEGER not null references Raum_Typ(id)
+	Haushalt_Id INTEGER not null references Haushalt(id) ON DELETE CASCADE,
+	Raum_Typ_Id INTEGER not null references Raum_Typ(id),
+	Deleted BOOLEAN default false
 );
 
 CREATE TABLE Geraet (
@@ -82,14 +83,15 @@ CREATE TABLE Geraet (
 	Geraet_Typ_Id INTEGER not null references Geraet_Typ(id),
 	Schnittstelle VARCHAR(256),
 	Erstellt_Am timestamp default NOW(),
-	Raum_Id INTEGER not null references Raum(id)
+	Raum_Id INTEGER not null references Raum(id) ON DELETE CASCADE,
+	Deleted BOOLEAN default false
 );
 
 CREATE TABLE Schaltvorgang (
 	id	SERIAL primary key not null UNIQUE,
 	Schaltvorgang_Typ_Id INTEGER not null references Schaltvorgang_Typ(id),
 	Zeitpunkt timestamp default NOW(),
-	Geraet_Id INTEGER not null references Geraet(id),
+	Geraet_Id INTEGER not null references Geraet(id) ON DELETE CASCADE,
 	Zustand_Id INTEGER not null references Zustand(id)
 );
 
@@ -97,7 +99,7 @@ CREATE TABLE Sensor (
 	id	SERIAL primary key not null UNIQUE,
 	Sensor_Typ_Id INTEGER not null references Sensor_Typ(id),
 	Erstellt_Am timestamp default NOW(),
-	Geraet_Id INTEGER not null references Geraet(id)
+	Geraet_Id INTEGER not null references Geraet(id) ON DELETE CASCADE
 );
 
 CREATE TABLE Messwert (
@@ -105,12 +107,12 @@ CREATE TABLE Messwert (
 	Wert DECIMAL not null,
 	Schwellenwert DECIMAL not null,
 	Zeitpunkt timestamp default NOW(),
-	Sensor_Id INTEGER not null references Sensor(id)
+	Sensor_Id INTEGER not null references Sensor(id) ON DELETE CASCADE
 );
 
 CREATE TABLE Alarm (
 	id	SERIAL primary key not null UNIQUE,
 	Alarm_Typ_Id INTEGER not null references Alarm_Typ(id),
 	Zeitpunkt timestamp default NOW(),
-	Messwert_Id INTEGER not null references Messwert(id)
+	Messwert_Id INTEGER not null references Messwert(id) ON DELETE CASCADE
 );
