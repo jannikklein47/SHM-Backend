@@ -53,18 +53,17 @@ app.get("/haushalt/:nutzerId", async (req, res) => {
   }
 });
 
-app.get("/haushaltzuordnung/:haushalt_id", async (req, res) => {
+app.patch("/haushalt/:id", async (req, res) => {
   try {
-    const result = await pool.query(
-      `
-      SELECT * FROM Haushalt_Zuordnung hz
-      JOIN Nutzer n on hz.nutzer_id = n.id
-      WHERE hz.haushalt_id = $1
-      ORDER BY hz.id ASC
-    `,
-      [req.params.haushalt_id],
+    const { id } = req.params;
+    const { name } = req.body;
+
+    const updatedHaushalt = await pool.query(
+      "UPDATE Haushalt SET name = $1 WHERE id = $2 RETURNING *",
+      [name, id],
     );
-    res.json(result.rows);
+
+    res.json(updatedHaushalt.rows[0]);
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);
@@ -90,17 +89,18 @@ app.post("/haushalt", async (req, res) => {
   }
 });
 
-app.patch("/haushalt/:id", async (req, res) => {
+app.get("/haushaltzuordnung/:haushalt_id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name } = req.body;
-
-    const updatedHaushalt = await pool.query(
-      "UPDATE Haushalt SET name = $1 WHERE id = $2 RETURNING *",
-      [name, id],
+    const result = await pool.query(
+      `
+      SELECT * FROM Haushalt_Zuordnung hz
+      JOIN Nutzer n on hz.nutzer_id = n.id
+      WHERE hz.haushalt_id = $1
+      ORDER BY hz.id ASC
+    `,
+      [req.params.haushalt_id],
     );
-
-    res.json(updatedHaushalt.rows[0]);
+    res.json(result.rows);
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);
@@ -118,6 +118,21 @@ app.post("/haushaltzuordnung/:haushalt_id", async (req, res) => {
     res.json({ zuordnung });
   } catch (error) {
     console.error(error.message);
+    res.status(500).send(error.message);
+  }
+});
+
+app.patch("/haushaltzuordnung/:haushalt_id", async (req, res) => {
+  try {
+    const { haushalt_id } = req.params;
+    const { nutzer_id, verwaltet } = req.body;
+    const updated = await pool.query(
+      "UPDATE Haushalt_Zuordnung SET verwaltet = $1 WHERE haushalt_id = $2 AND nutzer_id = $3 RETURNING *",
+      [verwaltet, haushalt_id, nutzer_id],
+    );
+    res.json(updated.rows[0]);
+  } catch (error) {
+    console.error(error);
     res.status(500).send(error.message);
   }
 });
