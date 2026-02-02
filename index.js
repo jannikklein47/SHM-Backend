@@ -125,13 +125,19 @@ app.post("/haushaltzuordnung/:haushalt_id", async (req, res) => {
 app.delete("/haushaltzuordnung/:haushalt_id", async (req, res) => {
   try {
     const { haushalt_id } = req.params;
-    const nutzer_id = req.query.nutzer_id;
-    console.log(haushalt_id, nutzer_id);
+    const { nutzer_id, deleteHouse } = req.query;
+
+    if (deleteHouse === "true") {
+      await pool.query("DELETE FROM Haushalt WHERE id = $1 RETURNING *", [
+        haushalt_id,
+      ]);
+      return res.send("ok");
+    }
+
     const deleted = await pool.query(
       "DELETE FROM Haushalt_Zuordnung WHERE haushalt_id = $1 AND nutzer_id = $2 RETURNING *",
       [haushalt_id, nutzer_id],
     );
-    console.log(deleted);
     res.json(deleted.rows[0]);
   } catch (error) {
     console.error(error.message);
@@ -384,6 +390,58 @@ app.delete("/geraet/:id", async (req, res) => {
       [id],
     );
     res.json(geraet.rows[0]);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send(error.message);
+  }
+});
+
+app.get("/deleteAccount", async (req, res) => {
+  try {
+    const { nutzer_id } = req.query;
+    const housesThatWillBeDeleted = await pool.query(
+      `
+      SELECT h.* FROM Haushalt h
+      JOIN Haushalt_Zuordnung hz on h.id = hz.haushalt_id
+      WHERE hz.verwaltet = true
+      GROUP BY h.id
+      HAVING COUNT(hz.nutzer_id) = 1
+        AND MIN(hz.nutzer_id) = $1
+    `,
+      [nutzer_id],
+    ); // Select all houses where the user is the ONLY admin
+
+    res.send(housesThatWillBeDeleted.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+app.delete("/deleteAccount", async (req, res) => {
+  try {
+    const { nutzer_id } = req.query;
+    const housesThatWillBeDeleted = await pool.query(
+      `
+      SELECT h.* FROM Haushalt h
+      JOIN Haushalt_Zuordnung hz on h.id = hz.haushalt_id
+      WHERE hz.verwaltet = true
+      GROUP BY h.id
+      HAVING COUNT(hz.nutzer_id) = 1
+        AND MIN(hz.nutzer_id) = $1
+    `,
+      [nutzer_id],
+    ); // Select all houses where the user is the ONLY admin
+
+    for (const house of housesThatWillBeDeleted.rows) {
+      const deletedHouse = await pool.query(
+        "DELETE FROM Haushalt WHERE id = $1",
+        [house.id],
+      );
+    }
+    const deletedUser = await pool.query("DELETE FROM Nutzer WHERE id = $1", [
+      nutzer_id,
+    ]);
+    res.send(deletedUser.rows);
   } catch (error) {
     console.error(error.message);
     res.status(500).send(error.message);
