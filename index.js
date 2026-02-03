@@ -449,6 +449,28 @@ app.get("/sensor/:geraet_id", async (req, res) => {
   }
 });
 
+app.post("/messungen", async (req, res) => {
+  try {
+    // We expect 'value', 'threshold', and 'sensor_id' from the frontend
+    const { sensor_id, wert, schwellenwert } = req.body;
+
+    // Validate inputs
+    if (!wert || !schwellenwert || !sensor_id) {
+      return res.status(400).send("Missing required fields: value, threshold, or sensor_id");
+    }
+
+    const newMeasurement = await pool.query(
+      "INSERT INTO Messwert (wert, schwellenwert, sensor_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
+      [wert, schwellenwert, sensor_id]
+    );
+
+    res.json(newMeasurement.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
 app.get("/messungen/:sensor_id", async (req, res) => {
   try {
     const result = await pool.query(
