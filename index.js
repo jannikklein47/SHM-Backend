@@ -381,17 +381,51 @@ app.post("/sensor", async (req, res) => {
       "INSERT INTO Sensor (sensor_typ_id, erstellt_am, geraet_id) VALUES ($1, $2, $3) RETURNING *",
       [sensor_typ_id, new Date(), geraet_id], // Use the array to prevent SQL Injection
     );
-    const raum = await pool.query("SELECT Raum_Id FROM Geraet WHERE id = $1", [
-      geraet_id,
-    ]);
+    const raum = await pool.query(
+      `SELECT g.raum_Id, r.haushalt_id
+      FROM Geraet g
+      Join Raum r on g.raum_id = r.id
+      WHERE g.id = $1`, 
+      [geraet_id]
+    );
     log(
-      "Sesnor " + newGerät.rows[0].id + " created",
-      null,
+      "Sensor " + newGerät.rows[0].id + " created",
       newGerät.rows[0].id,
       newGerät.rows[0].geraet_id,
+      raum.rows[0].raum_id,
       raum.rows[0].haushalt_id,
+      null 
     );
     res.json(newGerät.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.delete("/sensor/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sensor = await pool.query(
+      "DELETE FROM Sensor WHERE id = $1 RETURNING *",
+      [id],
+    );
+    const raum = await pool.query(
+      `
+      SELECT r.haushalt_id FROM Raum r
+      JOIN Geraet g ON r.id = g.raum_id
+      WHERE g.id = $1
+    `,
+      [sensor.rows[0].geraet_id],
+    );
+    log(
+      "Sensor deleted",
+      sensor.rows[0].id,
+      sensor.rows[0].geraet_id,
+      sensor.rows[0].raum_id,
+      raum.rows[0].haushalt_id,
+    );
+    res.json(sensor.rows[0]);
   } catch (error) {
     console.error(error);
     res.status(500).send(error.message);
