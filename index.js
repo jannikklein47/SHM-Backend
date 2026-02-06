@@ -18,9 +18,11 @@ async function log(
   raum_id,
   haushalt_id,
   nutzer_id,
+  client = null
 ) {
+  const db = client || pool;
   try {
-    await pool.query(
+    await db.query(
       "INSERT INTO Verlauf (beschreibung, sensor_id, geraet_id, raum_id, haushalt_id, nutzer_id) VALUES ($1, $2, $3, $4, $5, $6)",
       [message, sensor_id, geraet_id, raum_id, haushalt_id, nutzer_id],
     );
@@ -91,18 +93,22 @@ app.patch("/haushalt/:id", async (req, res) => {
 });
 
 app.post("/haushalt", async (req, res) => {
+  const client = await pool.connect();
   try {
     const { nutzerId, name, adresse } = req.body;
-    const newHaushalt = await pool.query(
+
+    await client.query("BEGIN");
+
+    const newHaushalt = await client.query(
       "INSERT INTO Haushalt (name, adresse) VALUES ($1, $2) RETURNING *",
       [name, adresse], // Use the array to prevent SQL Injection
     );
-    const zuordnung = await pool.query(
+    const zuordnung = await client.query(
       "INSERT INTO Haushalt_Zuordnung (nutzer_id, haushalt_id, verwaltet) VALUES ($1, $2, $3) RETURNING *",
       [nutzerId, newHaushalt.rows[0].id, true], // Use the array to prevent SQL Injection
     );
 
-    await log("Household created", null, null, null, newHaushalt.rows[0].id);
+    await log("Household created", null, null, null, newHaushalt.rows[0].id, null, client);
     await log(
       "Admin assigned",
       null,
@@ -110,12 +116,18 @@ app.post("/haushalt", async (req, res) => {
       null,
       newHaushalt.rows[0].id,
       nutzerId,
+      client
     );
-
+    console.log("Test before Rollback");
+    await client.query("COMMIT");
     res.json({ newHaushalt, zuordnung });
   } catch (error) {
+    console.log("Rollback Success");
+    await client.query("ROLLBACK");
     console.error(error);
     res.status(500).send(error.message);
+  } finally {
+    client.release();
   }
 });
 
