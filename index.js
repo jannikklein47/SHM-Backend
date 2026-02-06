@@ -773,4 +773,41 @@ app.get("/averageReading/:geraet_id", async (req, res) => {
   }
 });
 
+app.get("/deviceAlarmStats/:geraet_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT * 
+      FROM v_alarm_statistik vas
+      LEFT JOIN Sensor s ON vas.sensor_id = s.id
+      WHERE s.geraet_id = $1
+    `,
+      [req.query.geraet_id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.get("/deviceSensorAverageDifference/:geraet_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT s.id, AVG(ueberschreitung_prozent) as durchschnitt
+      FROM v_alarm_statistik vas
+      JOIN Sensor s ON vas.sensor_id = s.id
+      WHERE s.geraet_id = $1
+      GROUP BY s.id
+    `,
+      [req.query.geraet_id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
 app.listen(3000, () => console.log("Server running on port 3000"));
