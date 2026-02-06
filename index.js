@@ -551,9 +551,6 @@ app.get("/typen", async (req, res) => {
     const sensor_typ = (
       await pool.query("SELECT * FROM Sensor_Typ ORDER BY id ASC")
     ).rows;
-    const alarm_typ = (
-      await pool.query("SELECT * FROM Alarm_Typ ORDER BY id ASC")
-    ).rows;
     const zustand = (await pool.query("SELECT * FROM Zustand ORDER BY id ASC"))
       .rows;
 
@@ -562,7 +559,6 @@ app.get("/typen", async (req, res) => {
       geraet_typ,
       schaltvorgang_typ,
       sensor_typ,
-      alarm_typ,
       zustand,
     });
   } catch (error) {
