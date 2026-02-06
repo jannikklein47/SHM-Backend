@@ -749,8 +749,8 @@ app.get("/roomDeviceCount/:haushalt_id", async (req, res) => {
       `
       SELECT r.id, COUNT(g.id) as anzahl_geraete
       FROM Raum r
-      WHERE r.haushalt_id = $1
       LEFT JOIN Geraet g ON r.id = g.raum_id
+      WHERE r.haushalt_id = $1
       GROUP BY r.id
     `,
       [req.params.haushalt_id],
@@ -768,8 +768,8 @@ app.get("/averageReading/:geraet_id", async (req, res) => {
       `
       SELECT s.id, AVG(m.wert) as durchschnittswert
       FROM Sensor s
-      WHERE s.geraet_id = $1
       JOIN Messwert m ON s.id = m.sensor_id
+      WHERE s.geraet_id = $1
       GROUP BY s.id
     `,
       [req.params.geraet_id],
@@ -790,7 +790,7 @@ app.get("/deviceAlarmStats/:geraet_id", async (req, res) => {
       LEFT JOIN Sensor s ON vas.sensor_id = s.id
       WHERE s.geraet_id = $1
     `,
-      [req.query.geraet_id],
+      [req.params.geraet_id],
     );
     res.json(result.rows);
   } catch (error) {
@@ -809,7 +809,7 @@ app.get("/deviceSensorAverageDifference/:geraet_id", async (req, res) => {
       WHERE s.geraet_id = $1
       GROUP BY s.id
     `,
-      [req.query.geraet_id],
+      [req.params.geraet_id],
     );
     res.json(result.rows);
   } catch (error) {
