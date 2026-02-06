@@ -30,13 +30,6 @@ INSERT INTO Sensor_Typ (Name) VALUES
 ('Licht'),
 ('Anwesenheit');
 
--- Alarm_Typ
-INSERT INTO Alarm_Typ (Name) VALUES
-('Hohe Temperatur'),
-('Niedrige Temperatur'),
-('Unerwartete Bewegung'),
-('Unterschreitung Schwellenwert');
-
 -- Zustand
 INSERT INTO Zustand (Name) VALUES
 ('An'),

@@ -39,11 +39,6 @@ CREATE TABLE Sensor_Typ (
 	Name VARCHAR(256) not null
 );
 
-CREATE TABLE Alarm_Typ (
-	id SERIAL primary key not null UNIQUE,
-	Name VARCHAR(256) not null
-);
-
 CREATE TABLE Zustand (
 	id SERIAL primary key not null UNIQUE,
 	Name VARCHAR(256) not null
@@ -113,7 +108,6 @@ CREATE TABLE Messwert (
 
 CREATE TABLE Alarm (
 	id	SERIAL primary key not null UNIQUE,
-	Alarm_Typ_Id INTEGER not null references Alarm_Typ(id),
 	Zeitpunkt timestamp default NOW(),
 	Messwert_Id INTEGER not null references Messwert(id) ON DELETE CASCADE
 );
