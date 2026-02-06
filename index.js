@@ -387,7 +387,7 @@ app.post("/operations", async (req, res) => {
     // Insert new operation (Schaltvorgang)
     const newOperation = await pool.query(
       "INSERT INTO Schaltvorgang (geraet_id, schaltvorgang_typ_id, zustand_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
-      [device_id, type_id, state_id]
+      [device_id, type_id, state_id],
     );
 
     // Fetch context for the log entry
@@ -396,19 +396,19 @@ app.post("/operations", async (req, res) => {
        FROM Geraet g 
        JOIN Raum r ON g.raum_id = r.id 
        WHERE g.id = $1`,
-      [device_id]
+      [device_id],
     );
 
     // Add entry to the main history log
     if (deviceContext.rows.length > 0) {
       const { geraet_id, raum_id, haushalt_id } = deviceContext.rows[0];
       await log(
-        "Operation added manually", 
-        null, 
-        geraet_id, 
-        raum_id, 
-        haushalt_id, 
-        null
+        "Operation added manually",
+        null,
+        geraet_id,
+        raum_id,
+        haushalt_id,
+        null,
       );
     }
 
@@ -432,8 +432,8 @@ app.post("/sensor", async (req, res) => {
       `SELECT g.raum_Id, r.haushalt_id
       FROM Geraet g
       Join Raum r on g.raum_id = r.id
-      WHERE g.id = $1`, 
-      [geraet_id]
+      WHERE g.id = $1`,
+      [geraet_id],
     );
     log(
       "Sensor " + newGerät.rows[0].id + " created",
@@ -441,7 +441,7 @@ app.post("/sensor", async (req, res) => {
       newGerät.rows[0].geraet_id,
       raum.rows[0].raum_id,
       raum.rows[0].haushalt_id,
-      null 
+      null,
     );
     res.json(newGerät.rows[0]);
   } catch (error) {
@@ -503,12 +503,14 @@ app.post("/messungen", async (req, res) => {
 
     // Validate inputs
     if (!wert || !schwellenwert || !sensor_id) {
-      return res.status(400).send("Missing required fields: value, threshold, or sensor_id");
+      return res
+        .status(400)
+        .send("Missing required fields: value, threshold, or sensor_id");
     }
 
     const newMeasurement = await pool.query(
       "INSERT INTO Messwert (wert, schwellenwert, sensor_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
-      [wert, schwellenwert, sensor_id]
+      [wert, schwellenwert, sensor_id],
     );
 
     res.json(newMeasurement.rows[0]);
@@ -725,6 +727,44 @@ app.get("/latestActivity/:haushalt_id", async (req, res) => {
       LIMIT 1
       `,
       [req.params.haushalt_id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.get("/roomDeviceCount/:haushalt_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT r.id, COUNT(g.id) as anzahl_geraete
+      FROM Raum r
+      WHERE r.haushalt_id = $1
+      LEFT JOIN Geraet g ON r.id = g.raum_id
+      GROUP BY r.id
+    `,
+      [req.params.haushalt_id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.get("/averageReading/:geraet_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT s.id, AVG(m.wert) as durchschnittswert
+      FROM Sensor s
+      WHERE s.geraet_id = $1
+      JOIN Messwert m ON s.id = m.sensor_id
+      GROUP BY s.id
+    `,
+      [req.params.geraet_id],
     );
     res.json(result.rows);
   } catch (error) {
