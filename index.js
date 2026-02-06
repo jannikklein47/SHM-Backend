@@ -374,6 +374,53 @@ app.get("/schaltvorgaenge/:gerät_id", async (req, res) => {
   }
 });
 
+// ... existing code ...
+
+app.post("/operations", async (req, res) => {
+  try {
+    const { device_id, type_id, state_id } = req.body;
+
+    if (!device_id || !type_id || !state_id) {
+      return res.status(400).send("Missing required fields");
+    }
+
+    // Insert new operation (Schaltvorgang)
+    const newOperation = await pool.query(
+      "INSERT INTO Schaltvorgang (geraet_id, schaltvorgang_typ_id, zustand_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
+      [device_id, type_id, state_id]
+    );
+
+    // Fetch context for the log entry
+    const deviceContext = await pool.query(
+      `SELECT g.id as geraet_id, r.id as raum_id, r.haushalt_id 
+       FROM Geraet g 
+       JOIN Raum r ON g.raum_id = r.id 
+       WHERE g.id = $1`,
+      [device_id]
+    );
+
+    // Add entry to the main history log
+    if (deviceContext.rows.length > 0) {
+      const { geraet_id, raum_id, haushalt_id } = deviceContext.rows[0];
+      await log(
+        "Operation added manually", 
+        null, 
+        geraet_id, 
+        raum_id, 
+        haushalt_id, 
+        null
+      );
+    }
+
+    res.json(newOperation.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+// ... existing code ...
+
 app.post("/sensor", async (req, res) => {
   try {
     const { sensor_typ_id, geraet_id } = req.body;
