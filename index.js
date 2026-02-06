@@ -374,6 +374,53 @@ app.get("/schaltvorgaenge/:gerät_id", async (req, res) => {
   }
 });
 
+// ... existing code ...
+
+app.post("/operations", async (req, res) => {
+  try {
+    const { device_id, type_id, state_id } = req.body;
+
+    if (!device_id || !type_id || !state_id) {
+      return res.status(400).send("Missing required fields");
+    }
+
+    // Insert new operation (Schaltvorgang)
+    const newOperation = await pool.query(
+      "INSERT INTO Schaltvorgang (geraet_id, schaltvorgang_typ_id, zustand_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
+      [device_id, type_id, state_id]
+    );
+
+    // Fetch context for the log entry
+    const deviceContext = await pool.query(
+      `SELECT g.id as geraet_id, r.id as raum_id, r.haushalt_id 
+       FROM Geraet g 
+       JOIN Raum r ON g.raum_id = r.id 
+       WHERE g.id = $1`,
+      [device_id]
+    );
+
+    // Add entry to the main history log
+    if (deviceContext.rows.length > 0) {
+      const { geraet_id, raum_id, haushalt_id } = deviceContext.rows[0];
+      await log(
+        "Operation added manually", 
+        null, 
+        geraet_id, 
+        raum_id, 
+        haushalt_id, 
+        null
+      );
+    }
+
+    res.json(newOperation.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+// ... existing code ...
+
 app.post("/sensor", async (req, res) => {
   try {
     const { sensor_typ_id, geraet_id } = req.body;
@@ -381,17 +428,51 @@ app.post("/sensor", async (req, res) => {
       "INSERT INTO Sensor (sensor_typ_id, erstellt_am, geraet_id) VALUES ($1, $2, $3) RETURNING *",
       [sensor_typ_id, new Date(), geraet_id], // Use the array to prevent SQL Injection
     );
-    const raum = await pool.query("SELECT Raum_Id FROM Geraet WHERE id = $1", [
-      geraet_id,
-    ]);
+    const raum = await pool.query(
+      `SELECT g.raum_Id, r.haushalt_id
+      FROM Geraet g
+      Join Raum r on g.raum_id = r.id
+      WHERE g.id = $1`, 
+      [geraet_id]
+    );
     log(
-      "Sesnor " + newGerät.rows[0].id + " created",
-      null,
+      "Sensor " + newGerät.rows[0].id + " created",
       newGerät.rows[0].id,
       newGerät.rows[0].geraet_id,
+      raum.rows[0].raum_id,
       raum.rows[0].haushalt_id,
+      null 
     );
     res.json(newGerät.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.delete("/sensor/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sensor = await pool.query(
+      "DELETE FROM Sensor WHERE id = $1 RETURNING *",
+      [id],
+    );
+    const raum = await pool.query(
+      `
+      SELECT r.haushalt_id FROM Raum r
+      JOIN Geraet g ON r.id = g.raum_id
+      WHERE g.id = $1
+    `,
+      [sensor.rows[0].geraet_id],
+    );
+    log(
+      "Sensor deleted",
+      sensor.rows[0].id,
+      sensor.rows[0].geraet_id,
+      sensor.rows[0].raum_id,
+      raum.rows[0].haushalt_id,
+    );
+    res.json(sensor.rows[0]);
   } catch (error) {
     console.error(error);
     res.status(500).send(error.message);
@@ -409,6 +490,28 @@ app.get("/sensor/:geraet_id", async (req, res) => {
       [req.params.geraet_id],
     );
     res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.post("/messungen", async (req, res) => {
+  try {
+    // We expect 'value', 'threshold', and 'sensor_id' from the frontend
+    const { sensor_id, wert, schwellenwert } = req.body;
+
+    // Validate inputs
+    if (!wert || !schwellenwert || !sensor_id) {
+      return res.status(400).send("Missing required fields: value, threshold, or sensor_id");
+    }
+
+    const newMeasurement = await pool.query(
+      "INSERT INTO Messwert (wert, schwellenwert, sensor_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
+      [wert, schwellenwert, sensor_id]
+    );
+
+    res.json(newMeasurement.rows[0]);
   } catch (error) {
     console.error(error);
     res.status(500).send(error.message);
