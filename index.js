@@ -93,8 +93,10 @@ app.patch("/haushalt/:id", async (req, res) => {
 });
 
 app.post("/haushalt", async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
+
     const { nutzerId, name, adresse } = req.body;
 
     await client.query("BEGIN");
@@ -118,16 +120,18 @@ app.post("/haushalt", async (req, res) => {
       nutzerId,
       client
     );
-    console.log("Test before Rollback");
     await client.query("COMMIT");
     res.json({ newHaushalt, zuordnung });
   } catch (error) {
-    console.log("Rollback Success");
-    await client.query("ROLLBACK");
+    if (client) {
+      await client.query("ROLLBACK");
+    }
     console.error(error);
     res.status(500).send(error.message);
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 });
 
@@ -509,7 +513,9 @@ app.get("/sensor/:geraet_id", async (req, res) => {
 });
 
 app.post("/messungen", async (req, res) => {
+  let client
   try {
+    client = await pool.connect();
     // We expect 'value', 'threshold', and 'sensor_id' from the frontend
     const { sensor_id, wert, schwellenwert } = req.body;
 
@@ -520,16 +526,35 @@ app.post("/messungen", async (req, res) => {
         .send("Missing required fields: value, threshold, or sensor_id");
     }
 
-    const newMeasurement = await pool.query(
+    await client.query("BEGIN");
+
+
+    const newMeasurement = await client.query(
       "INSERT INTO Messwert (wert, schwellenwert, sensor_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
       [wert, schwellenwert, sensor_id],
     );
 
+    if (wert > schwellenwert) {
+      // Fetch context for the log entry
+      await client.query(
+        "INSERT INTO alarm (messwert_id, zeitpunkt) VALUES ($1, NOW())",
+      [newMeasurement.rows[0].id],
+      );
+    }
+    await client.query("COMMIT");
     res.json(newMeasurement.rows[0]);
   } catch (error) {
+    if (client) {
+      await client.query("ROLLBACK");
+    }
     console.error(error);
     res.status(500).send(error.message);
   }
+  finally {
+    if (client) {
+      client.release();
+  }
+}
 });
 
 app.get("/messungen/:sensor_id", async (req, res) => {
@@ -749,8 +774,8 @@ app.get("/roomDeviceCount/:haushalt_id", async (req, res) => {
       `
       SELECT r.id, COUNT(g.id) as anzahl_geraete
       FROM Raum r
-      WHERE r.haushalt_id = $1
       LEFT JOIN Geraet g ON r.id = g.raum_id
+      WHERE r.haushalt_id = $1
       GROUP BY r.id
     `,
       [req.params.haushalt_id],
@@ -768,8 +793,8 @@ app.get("/averageReading/:geraet_id", async (req, res) => {
       `
       SELECT s.id, AVG(m.wert) as durchschnittswert
       FROM Sensor s
-      WHERE s.geraet_id = $1
       JOIN Messwert m ON s.id = m.sensor_id
+      WHERE s.geraet_id = $1
       GROUP BY s.id
     `,
       [req.params.geraet_id],
@@ -790,7 +815,7 @@ app.get("/deviceAlarmStats/:geraet_id", async (req, res) => {
       LEFT JOIN Sensor s ON vas.sensor_id = s.id
       WHERE s.geraet_id = $1
     `,
-      [req.query.geraet_id],
+      [req.params.geraet_id],
     );
     res.json(result.rows);
   } catch (error) {
@@ -809,7 +834,7 @@ app.get("/deviceSensorAverageDifference/:geraet_id", async (req, res) => {
       WHERE s.geraet_id = $1
       GROUP BY s.id
     `,
-      [req.query.geraet_id],
+      [req.params.geraet_id],
     );
     res.json(result.rows);
   } catch (error) {
