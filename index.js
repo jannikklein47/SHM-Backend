@@ -11,6 +11,10 @@ app.use(
   }),
 );
 
+app.use((req, res, next) => {
+  next();
+});
+
 async function log(
   message,
   sensor_id,
@@ -18,7 +22,7 @@ async function log(
   raum_id,
   haushalt_id,
   nutzer_id,
-  client = null
+  client = null,
 ) {
   const db = client || pool;
   try {
@@ -83,7 +87,14 @@ app.patch("/haushalt/:id", async (req, res) => {
       [name, id],
     );
 
-    await log("Renamed Household", null, null, null, id);
+    await log(
+      "Renamed Household",
+      null,
+      null,
+      null,
+      id,
+      req.headers["x-user-id"],
+    );
 
     res.json(updatedHaushalt.rows[0]);
   } catch (error) {
@@ -110,7 +121,15 @@ app.post("/haushalt", async (req, res) => {
       [nutzerId, newHaushalt.rows[0].id, true], // Use the array to prevent SQL Injection
     );
 
-    await log("Household created", null, null, null, newHaushalt.rows[0].id, null, client);
+    await log(
+      "Household created",
+      null,
+      null,
+      null,
+      newHaushalt.rows[0].id,
+      req.headers["x-user-id"],
+      client,
+    );
     await log(
       "Admin assigned",
       null,
@@ -118,7 +137,7 @@ app.post("/haushalt", async (req, res) => {
       null,
       newHaushalt.rows[0].id,
       nutzerId,
-      client
+      client,
     );
     await client.query("COMMIT");
     res.json({ newHaushalt, zuordnung });
@@ -216,7 +235,14 @@ app.delete("/haushaltzuordnung/:haushalt_id", async (req, res) => {
       "DELETE FROM Haushalt_Zuordnung WHERE haushalt_id = $1 AND nutzer_id = $2 RETURNING *",
       [haushalt_id, nutzer_id],
     );
-    log("Removed User " + nutzer_id + " from Household");
+    log(
+      "Removed User " + nutzer_id + " from Household",
+      null,
+      null,
+      null,
+      null,
+      req.headers["x-user-id"],
+    );
     res.json(deleted.rows[0]);
   } catch (error) {
     console.error(error);
@@ -250,6 +276,7 @@ app.post("/raum/:haushalt_id", async (req, res) => {
       null,
       newRaum.rows[0].id,
       req.params.haushalt_id,
+      req.headers["x-user-id"],
     );
     res.send(newRaum.rows[0]);
   } catch (error) {
@@ -274,6 +301,7 @@ app.patch("/raum/:id", async (req, res) => {
       null,
       id,
       updatedRaum.rows[0].haushalt_id,
+      req.headers["x-user-id"],
     );
 
     res.json(updatedRaum.rows[0]);
@@ -334,6 +362,7 @@ app.post("/geraet/:raum_id", async (req, res) => {
       newGerät.rows[0].id,
       req.params.raum_id,
       raum.rows[0].haushalt_id,
+      req.headers["x-user-id"],
     );
     res.json(newGerät.rows[0]);
   } catch (error) {
@@ -424,7 +453,7 @@ app.post("/operations", async (req, res) => {
         geraet_id,
         raum_id,
         haushalt_id,
-        null,
+        req.headers["x-user-id"],
       );
     }
 
@@ -457,7 +486,7 @@ app.post("/sensor", async (req, res) => {
       newGerät.rows[0].geraet_id,
       raum.rows[0].raum_id,
       raum.rows[0].haushalt_id,
-      null,
+      req.headers["x-user-id"],
     );
     res.json(newGerät.rows[0]);
   } catch (error) {
@@ -487,6 +516,7 @@ app.delete("/sensor/:id", async (req, res) => {
       sensor.rows[0].geraet_id,
       sensor.rows[0].raum_id,
       raum.rows[0].haushalt_id,
+      req.headers["x-user-id"],
     );
     res.json(sensor.rows[0]);
   } catch (error) {
@@ -513,7 +543,7 @@ app.get("/sensor/:geraet_id", async (req, res) => {
 });
 
 app.post("/messungen", async (req, res) => {
-  let client
+  let client;
   try {
     client = await pool.connect();
     // We expect 'value', 'threshold', and 'sensor_id' from the frontend
@@ -528,7 +558,6 @@ app.post("/messungen", async (req, res) => {
 
     await client.query("BEGIN");
 
-
     const newMeasurement = await client.query(
       "INSERT INTO Messwert (wert, schwellenwert, sensor_id, zeitpunkt) VALUES ($1, $2, $3, NOW()) RETURNING *",
       [wert, schwellenwert, sensor_id],
@@ -538,7 +567,7 @@ app.post("/messungen", async (req, res) => {
       // Fetch context for the log entry
       await client.query(
         "INSERT INTO alarm (messwert_id, zeitpunkt) VALUES ($1, NOW())",
-      [newMeasurement.rows[0].id],
+        [newMeasurement.rows[0].id],
       );
     }
     await client.query("COMMIT");
@@ -549,12 +578,11 @@ app.post("/messungen", async (req, res) => {
     }
     console.error(error);
     res.status(500).send(error.message);
-  }
-  finally {
+  } finally {
     if (client) {
       client.release();
+    }
   }
-}
 });
 
 app.get("/messungen/:sensor_id", async (req, res) => {
@@ -625,7 +653,14 @@ app.delete("/raum/:id", async (req, res) => {
       "UPDATE Raum SET deleted = true WHERE id = $1 RETURNING *",
       [id],
     );
-    log("Room deleted", null, null, raum.rows[0].id, raum.rows[0].haushalt_id);
+    log(
+      "Room deleted",
+      null,
+      null,
+      raum.rows[0].id,
+      raum.rows[0].haushalt_id,
+      req.headers["x-user-id"],
+    );
     res.json(raum.rows[0]);
   } catch (error) {
     console.error(error);
@@ -650,6 +685,7 @@ app.delete("/geraet/:id", async (req, res) => {
       geraet.rows[0].id,
       geraet.rows[0].raum_id,
       raum.rows[0].haushalt_id,
+      req.headers["x-user-id"],
     );
     res.json(geraet.rows[0]);
   } catch (error) {
@@ -837,6 +873,62 @@ app.get("/deviceSensorAverageDifference/:geraet_id", async (req, res) => {
       [req.params.geraet_id],
     );
     res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
+
+// ---- Profile routes
+
+app.get("/profile/:nutzer_id", async (req, res) => {
+  try {
+    const userId = req.params.nutzer_id;
+    const interactions = await pool.query(
+      `
+      SELECT COUNT(*) as interaction_count
+      FROM Verlauf
+      WHERE Nutzer_Id = $1
+    `,
+      [userId],
+    );
+    const households = await pool.query(
+      `
+      SELECT
+        COUNT (*) FILTER (WHERE verwaltet = true) as admin_count,
+        COUNT (*) FILTER (WHERE verwaltet = false) as member_count
+      FROM Haushalt_Zuordnung
+      WHERE Nutzer_Id = $1
+    `,
+      [userId],
+    );
+    const usage = await pool.query(
+      `
+      WITH UserActivity AS (
+        SELECT n.id as nutzer_id, COUNT(v.id) as activity_count
+        FROM Nutzer n
+        LEFT JOIN Verlauf v ON n.id = v.nutzer_id
+        GROUP BY n.id
+      ),
+      RankedActivity AS (
+        SELECT
+          nutzer_id,
+          PERCENT_RANK() OVER (ORDER BY activity_count) * 100 as usage_percentile
+        FROM UserActivity
+      )
+      SELECT ROUND(usage_percentile) as usage_level
+      FROM RankedActivity
+      WHERE nutzer_id = $1
+    `,
+      [userId],
+    );
+
+    res.json({
+      interaction_count: interactions.rows[0].interaction_count,
+      admin_count: households.rows[0].admin_count,
+      member_count: households.rows[0].member_count,
+      usage_level: usage.rows[0].usage_level,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send(error.message);
