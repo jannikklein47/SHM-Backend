@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import pool from "./db.js";
+import db from "./utils/Database.js";
 
 async function runMigrations() {
   const migrationsDir = "./migrations";
@@ -28,7 +28,7 @@ async function runMigrations() {
   console.log(`Found ${files.length} migrations. Starting execution...`);
 
   // 3. Execute migrations sequentially
-  const client = await pool.connect();
+  const client = await db.pool.connect();
 
   try {
     for (const file of files) {
@@ -46,10 +46,10 @@ async function runMigrations() {
     console.log("All migrations applied successfully.");
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error(`Migration failed at ${files[0]}:`, err.message);
+    console.error(`Migration failed at ${files[0]}:`, err);
   } finally {
     client.release();
-    await pool.end();
+    await db.pool.end();
   }
 }
 
