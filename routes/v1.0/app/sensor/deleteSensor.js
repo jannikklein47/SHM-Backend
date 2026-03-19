@@ -13,14 +13,14 @@ router.delete("/:id", async (req, res, next) => {
     let sensor;
     await Database.transaction(async (client) => {
       sensor = await SensorService.deleteSensor(req.params.id, client);
+      console.log("deleted: ", sensor);
       const deviceContext = await DeviceService.getDeviceContext(
-        sensor.deviceId,
+        sensor.deviceid,
         client,
       );
       await HistoryService.entry(
         {
           message: "Sensor " + sensor.id + " deleted",
-          sensorId: sensor.id,
           deviceId: deviceContext.deviceid,
           roomId: deviceContext.roomid,
           userId: req.userId,

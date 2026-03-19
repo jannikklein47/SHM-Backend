@@ -29,7 +29,7 @@ module.exports = {
   },
   async updateHousehold(id, name, client) {
     const { rows } = await client.query(
-      "UPDATE Household SET name = $1 WHERE id = $2 RETUNING *",
+      "UPDATE Household SET name = $1 WHERE id = $2 RETURNING *",
       [name, id],
     );
     return rows[0];

@@ -3,7 +3,7 @@ const Database = require("../utils/Database");
 module.exports = {
   getDeviceById: async (id) => {
     const { rows } = await Database.pool.query(
-      `SELECT d.*, dt.name as deviceTypeName, i.name as interface FROM Device d
+      `SELECT d.*, dt.name as deviceTypeName, i.name as interface, dt.icon FROM Device d
       LEFT JOIN DeviceType dt on d.deviceTypeId = dt.id
       LEFT JOIN Interface i on d.interfaceId = i.id
       WHERE d.id = $1 AND d.deleted = false`,
@@ -13,9 +13,17 @@ module.exports = {
   },
   getDevicesByHouseholdId: async (householdId) => {
     const { rows } = await Database.pool.query(
-      `SELECT d.*, i.name as interfaceName FROM Device d 
+      `SELECT d.*, i.name as interfaceName, s.stateId as latestStateId, s.stateName as latestStateName, s.operationTypeName as latestOperationType, dt.icon as icon, dt.id as deviceTypeId FROM Device d 
       LEFT JOIN Room r ON d.roomId = r.id
-      LEFT JOIN Interface i on d.interfaceId = i.id
+      LEFT JOIN Interface i ON d.interfaceId = i.id
+      LEFT JOIN DeviceType dt ON d.deviceTypeId = dt.id
+      LEFT JOIN (
+        SELECT DISTINCT ON (o.deviceId) o.deviceId, s.id as stateId, s.name as stateName, ot.name as operationTypeName
+        FROM State s
+        INNER JOIN Operation o ON o.stateId = s.id
+        INNER JOIN OperationType ot ON o.operationTypeId = ot.id
+        ORDER BY o.deviceId, timestamp DESC
+      ) s on s.deviceId = d.id
       WHERE r.HouseholdId = $1 
         AND d.deleted = false ORDER BY d.id ASC`,
       [householdId],
