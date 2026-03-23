@@ -1,3 +1,6 @@
+-- So that the test data can be loaded into the database in hashed form.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 DROP TABLE IF EXISTS HouseholdAssignment CASCADE;
 DROP TABLE IF EXISTS History CASCADE;
 DROP TABLE IF EXISTS Alarm CASCADE;
@@ -52,7 +55,10 @@ CREATE TABLE SensorType (
 CREATE TABLE "User" (
     id SERIAL PRIMARY KEY,
     name VARCHAR(256) NOT NULL,
-    surname VARCHAR(256) NOT NULL
+    surname VARCHAR(256) NOT NULL,
+    username VARCHAR(256) NOT NULL UNIQUE,
+    password VARCHAR(256) NOT NULL
+
 );
 
 CREATE TABLE Household (
