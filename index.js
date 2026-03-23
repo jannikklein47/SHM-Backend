@@ -317,6 +317,7 @@ app.get("/geraet/:haushalt_id", async (req, res) => {
       `
       SELECT g.* FROM Geraet g
       LEFT JOIN Raum r ON g.Raum_Id = r.id
+      LEFT JOIN Sensor s ON s.Geraet_Id = g.id
       WHERE r.Haushalt_Id = $1 AND g.deleted = false
       ORDER BY g.id ASC
     `,
@@ -550,7 +551,11 @@ app.post("/messungen", async (req, res) => {
     const { sensor_id, wert, schwellenwert } = req.body;
 
     // Validate inputs
-    if (!wert || !schwellenwert || !sensor_id) {
+    if (
+      (!wert && wert !== 0) ||
+      (!schwellenwert && schwellenwert !== 0) ||
+      !sensor_id
+    ) {
       return res
         .status(400)
         .send("Missing required fields: value, threshold, or sensor_id");
@@ -565,10 +570,9 @@ app.post("/messungen", async (req, res) => {
 
     if (wert > schwellenwert) {
       // Fetch context for the log entry
-      await client.query(
-        "INSERT INTO alarm (messwert_id, zeitpunkt) VALUES ($1, NOW())",
-        [newMeasurement.rows[0].id],
-      );
+      await client.query("INSERT INTO alarm (messwert_id) VALUES ($1)", [
+        newMeasurement.rows[0].id,
+      ]);
     }
     await client.query("COMMIT");
     res.json(newMeasurement.rows[0]);
