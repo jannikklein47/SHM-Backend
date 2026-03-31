@@ -10,12 +10,13 @@ const HistoryService = require("../../../../services/historyService");
 
 router.post("/", async (req, res, next) => {
   try {
-    const { deviceId, sensorTypeId } = req.body;
+    const { deviceId, sensorTypeId, threshold } = req.body;
     let newSensor;
     await Database.transaction(async (client) => {
       newSensor = await SensorService.createSensor(
         sensorTypeId,
         deviceId,
+        threshold,
         client,
       );
       const deviceContext = await DeviceService.getDeviceContext(

@@ -11,12 +11,11 @@ const MeasurementService = require("../../../../services/measurementService");
 
 router.post("/", async (req, res, next) => {
   try {
-    const { sensorId, value, threshold } = req.body;
+    const { sensorId, value } = req.body;
     let measurement;
     await Database.transaction(async (client) => {
       measurement = await MeasurementService.createMeasurement(
         value,
-        threshold,
         sensorId,
         client,
       );

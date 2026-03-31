@@ -16,6 +16,14 @@ module.exports = {
     return rows[0];
   },
 
+  updateSensor: async (sensorId, threshold, client) => {
+    const { rows } = await client.query(
+      "UPDATE Sensor SET threshold = $1 WHERE id = $2 RETURNING *",
+      [threshold, sensorId],
+    );
+    return rows[0];
+  },
+
   deleteSensor: async (sensorId, client) => {
     const { rows } = await client.query(
       "DELETE FROM Sensor WHERE id = $1 RETURNING *",
