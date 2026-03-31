@@ -114,16 +114,16 @@ WHERE r.name LIKE 'Garage%';
 
 -- 7. Sensors (Attached to Devices based on Device Logic)
 -- Thermostats get Temperature and Humidity
-INSERT INTO Sensor (deviceId, sensorTypeId)
-SELECT d.id, st.id
+INSERT INTO Sensor (deviceId, sensorTypeId, threshold)
+SELECT d.id, st.id, 22
 FROM Device d
 JOIN DeviceType dt ON d.deviceTypeId = dt.id
 CROSS JOIN SensorType st
 WHERE dt.name = 'Thermostat' AND st.name IN ('Temperature', 'Humidity');
 
 -- Security Cameras get Motion Sensors
-INSERT INTO Sensor (deviceId, sensorTypeId)
-SELECT d.id, st.id
+INSERT INTO Sensor (deviceId, sensorTypeId, threshold)
+SELECT d.id, st.id, 1
 FROM Device d
 JOIN DeviceType dt ON d.deviceTypeId = dt.id
 JOIN SensorType st ON st.name = 'Motion'
@@ -149,7 +149,7 @@ WHERE dt.name = 'Smart Light';
 
 -- 9. Measurements (1,000+ Measurements over the last 48 hours)
 -- Generates ~60 measurements per sensor. With 30 sensors total, this yields ~1,800 records.
-INSERT INTO Measurement (sensorId, value, threshold, timestamp)
+INSERT INTO Measurement (sensorId, value, timestamp)
 SELECT 
     s.id,
     -- Realistic data generation based on sensor type
@@ -159,25 +159,18 @@ SELECT
         WHEN st.name = 'Motion' THEN floor(random() * 2)          -- 0 or 1
         ELSE 50.0 + (random() * 20.0)
     END,
-    CASE 
-        WHEN st.name = 'Temperature' THEN 25.0
-        WHEN st.name = 'Humidity' THEN 55.0
-        WHEN st.name = 'Motion' THEN 0.5
-        ELSE 60.0
-    END,
     -- Spread timestamps randomly over the last 48 hours
     CURRENT_TIMESTAMP - (random() * interval '48 hours')
 FROM Sensor s
 JOIN SensorType st ON s.sensorTypeId = st.id
 CROSS JOIN generate_series(1, 60);
 
--- 10. Alarms (exactly 20 alarms where value exceeds threshold)
+-- 10. Alarms
 INSERT INTO Alarm (measurementId)
-SELECT id 
-FROM Measurement
-WHERE value > threshold
-ORDER BY random() -- Pick 20 random violations
-LIMIT 20;
+SELECT m.id
+FROM Measurement m
+LEFT JOIN Sensor s ON m.sensorId = s.id
+WHERE m.value > s.threshold;
 
 -- 11. History Logs (150-200 entries spread over the last 14 days)
 -- We use a CTE to generate 15 random events per household (10 homes * 15 = 150 events)

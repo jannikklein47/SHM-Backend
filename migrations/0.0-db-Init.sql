@@ -167,9 +167,9 @@ SELECT
     s.id AS sensorId,
     st.Name AS sensorType,
     m.value,
-    m.threshold,
-    ABS(m.value - m.threshold) AS deviation,
-    ROUND(((m.value / m.threshold) - 1) * 100, 2) AS exceededPercent,
+    s.threshold,
+    ABS(m.value - s.threshold) AS deviation,
+    ROUND(((m.value / s.threshold) - 1) * 100, 2) AS exceededPercent,
     m.timestamp
 FROM Alarm a
 JOIN Measurement m ON a.measurementId = m.id

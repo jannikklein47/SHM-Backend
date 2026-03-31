@@ -17,7 +17,7 @@ module.exports = {
       "SELECT threshold FROM Sensor WHERE id = $1",
       [sensorId],
     );
-    if (value >= sensorRows.threshold) {
+    if (value >= sensorRows[0].threshold) {
       await client.query("INSERT INTO Alarm (measurementId) VALUES ($1)", [
         rows[0].id,
       ]);

@@ -89,6 +89,7 @@ module.exports = {
       SELECT * FROM vAlarmStatistics vas
       LEFT JOIN Sensor s ON vas.sensorId = s.id
       WHERE s.deviceId = $1
+      ORDER BY vas.timestamp, vas.sensortype
       `,
       [id],
     );
