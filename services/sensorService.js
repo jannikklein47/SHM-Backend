@@ -8,10 +8,10 @@ module.exports = {
     );
     return rows;
   },
-  createSensor: async (sensorTypeId, deviceId, client) => {
+  createSensor: async (sensorTypeId, deviceId, threshold, client) => {
     const { rows } = await client.query(
-      "INSERT INTO Sensor (sensorTypeId, createdAt, deviceId) VALUES ($1, NOW(), $2) RETURNING *",
-      [sensorTypeId, deviceId],
+      "INSERT INTO Sensor (sensorTypeId, createdAt, deviceId, threshold) VALUES ($1, NOW(), $2, $3) RETURNING *",
+      [sensorTypeId, deviceId, threshold],
     );
     return rows[0];
   },
