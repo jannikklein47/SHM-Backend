@@ -29,6 +29,7 @@ module.exports = {
           sn.deviceId,
           json_agg(json_build_object(
             'sensorId', sn.id,
+            'deviceId', sn.deviceId,
             'sensorType', st.name,
             'value', m.value,
             'timestamp', m.timestamp
@@ -108,7 +109,7 @@ module.exports = {
       SELECT * FROM vAlarmStatistics vas
       LEFT JOIN Sensor s ON vas.sensorId = s.id
       WHERE s.deviceId = $1
-      ORDER BY vas.timestamp, vas.sensortype
+      ORDER BY vas.timestamp DESC, vas.sensortype
       `,
       [id],
     );
