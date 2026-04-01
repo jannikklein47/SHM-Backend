@@ -115,7 +115,7 @@ WHERE r.name LIKE 'Garage%';
 -- 7. Sensors (Attached to Devices based on Device Logic)
 -- Thermostats get Temperature and Humidity
 INSERT INTO Sensor (deviceId, sensorTypeId, threshold)
-SELECT d.id, st.id, 22
+SELECT d.id, st.id, CASE WHEN st.name = 'Temperature' THEN 21 WHEN st.name = 'Humidity' THEN 70 END
 FROM Device d
 JOIN DeviceType dt ON d.deviceTypeId = dt.id
 CROSS JOIN SensorType st
@@ -148,22 +148,64 @@ JOIN State s ON s.name = 'High' AND s.operationTypeId = ot.id
 WHERE dt.name = 'Smart Light';
 
 -- 9. Measurements (1,000+ Measurements over the last 48 hours)
--- Generates ~60 measurements per sensor. With 30 sensors total, this yields ~1,800 records.
 INSERT INTO Measurement (sensorId, value, timestamp)
+WITH TimeSeries AS (
+    SELECT 
+        s.id,
+        st.name as sensor_type,
+        CURRENT_TIMESTAMP - (n * interval '15 minutes') as ts -- Increased density for smoother curves
+    FROM Sensor s
+    JOIN SensorType st ON s.sensorTypeId = st.id
+    CROSS JOIN generate_series(1, 1344) AS n -- 14 days of data
+),
+CalculatedWaves AS (
+    SELECT 
+        *,
+        extract(epoch from ts) as e,
+        -- 24-hour cycle
+        sin(extract(epoch from ts) * 2 * pi() / 86400 - (15 * pi() / 12)) as daily_wave,
+        -- 7-day cycle (simulates weather systems)
+        sin(extract(epoch from ts) * 2 * pi() / 604800) as weekly_trend,
+        -- 3-hour "noise" wave
+        sin(extract(epoch from ts) * 2 * pi() / 10800) as local_fluctuation,
+        sin(extract(epoch from ts) * 2 * pi() / 2419200) as seasonal_wave
+    FROM TimeSeries
+)
 SELECT 
-    s.id,
-    -- Realistic data generation based on sensor type
+    id,
     CASE 
-        WHEN st.name = 'Temperature' THEN 18.0 + (random() * 8.0) -- 18 to 26 °C
-        WHEN st.name = 'Humidity' THEN 30.0 + (random() * 30.0)   -- 30 to 60 %
-        WHEN st.name = 'Motion' THEN floor(random() * 2)          -- 0 or 1
-        ELSE 50.0 + (random() * 20.0)
+        WHEN sensor_type = 'Temperature' THEN 
+            ROUND(CAST(
+                20.0 -- Base Temp
+                + (random() * (random() + 1) * 4 * daily_wave)      -- Main day/night swing
+                + (random() * 5 * weekly_trend)    -- Long term weather change
+                + ((random()) * local_fluctuation) -- Small local variation
+                - ((4 + random() * 4) * seasonal_wave)
+                + (random() * 0.2)        -- Actual sensor noise
+            AS numeric), 2)
+            
+        WHEN sensor_type = 'Humidity' THEN 
+            ROUND(CAST(
+                60.0 
+                - (4.0 * daily_wave)     -- Inverted to temperature
+                + ((5 + 5 * random()) * weekly_trend)    -- Humid vs Dry weeks
+                + (2.0 * local_fluctuation)
+                + (10 * seasonal_wave)
+                + (random() * 0.2)
+            AS numeric), 2)
+
+        WHEN sensor_type = 'Motion' THEN 
+            -- Probability-based motion: More likely during 8am-6pm
+            CASE 
+                WHEN extract(hour from ts) BETWEEN 8 AND 18 
+                THEN (CASE WHEN random() > 0.7 THEN 1 ELSE 0 END) 
+                ELSE (CASE WHEN random() > 0.95 THEN 1 ELSE 0 END)
+            END
+            
+        ELSE ROUND(CAST(50.0 + (5.0 * daily_wave) + (random() * 2.0) AS numeric), 2)
     END,
-    -- Spread timestamps randomly over the last 48 hours
-    CURRENT_TIMESTAMP - (random() * interval '48 hours')
-FROM Sensor s
-JOIN SensorType st ON s.sensorTypeId = st.id
-CROSS JOIN generate_series(1, 60);
+    ts
+FROM CalculatedWaves;
 
 -- 10. Alarms
 INSERT INTO Alarm (measurementId)
