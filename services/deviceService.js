@@ -37,7 +37,6 @@ module.exports = {
         FROM Sensor sn
         JOIN SensorType st ON sn.sensorTypeId = st.id
         LEFT JOIN (
-          -- Subquery to get only the latest measurement per sensor
           SELECT DISTINCT ON (sensorId) sensorId, value, timestamp
           FROM Measurement
           ORDER BY sensorId, timestamp DESC
