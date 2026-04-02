@@ -8,14 +8,13 @@ const APIError = require("../../../../utils/error");
 const Database = require("../../../../utils/Database");
 const HistoryService = require("../../../../services/historyService");
 
-router.post("/", async (req, res, next) => {
+router.patch("/", async (req, res, next) => {
   try {
-    const { deviceId, sensorTypeId, threshold } = req.body;
-    let newSensor;
+    const { threshold, sensorId } = req.body;
+    let updatedSensor;
     await Database.transaction(async (client) => {
-      newSensor = await SensorService.createSensor(
-        sensorTypeId,
-        deviceId,
+      updatedSensor = await SensorService.updateSensor(
+        sensorId,
         threshold,
         client,
       );
@@ -25,8 +24,8 @@ router.post("/", async (req, res, next) => {
       );
       await HistoryService.entry(
         {
-          message: "Sensor " + newSensor.id + " created",
-          sensorId: newSensor.id,
+          message: "Changed Threshold of Sensor " + updatedSensor.id,
+          sensorId: updatedSensor.id,
           deviceId: deviceContext.deviceid,
           roomId: deviceContext.roomid,
           userId: req.userId,
@@ -35,7 +34,7 @@ router.post("/", async (req, res, next) => {
         client,
       );
     });
-    res.json(newSensor);
+    res.json(updatedSensor);
   } catch (error) {
     if (error.statusCode) {
       return next(error);

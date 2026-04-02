@@ -105,6 +105,7 @@ CREATE TABLE Sensor (
     id SERIAL PRIMARY KEY,
     deviceId INTEGER NOT NULL,
     sensorTypeId INTEGER NOT NULL,
+    threshold DECIMAL(10,2) NOT NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
     FOREIGN KEY (deviceId) REFERENCES Device(id) ON DELETE CASCADE,
@@ -115,7 +116,6 @@ CREATE TABLE Measurement (
     id SERIAL PRIMARY KEY,
     sensorId INTEGER NOT NULL,
     value DECIMAL(10,2) NOT NULL,
-    threshold DECIMAL(10,2) NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sensorId) REFERENCES Sensor(id) ON DELETE CASCADE
 );
@@ -167,9 +167,9 @@ SELECT
     s.id AS sensorId,
     st.Name AS sensorType,
     m.value,
-    m.threshold,
-    ABS(m.value - m.threshold) AS deviation,
-    ROUND(((m.value / m.threshold) - 1) * 100, 2) AS exceededPercent,
+    s.threshold,
+    ABS(m.value - s.threshold) AS deviation,
+    ROUND(((m.value / s.threshold) - 1) * 100, 2) AS exceededPercent,
     m.timestamp
 FROM Alarm a
 JOIN Measurement m ON a.measurementId = m.id

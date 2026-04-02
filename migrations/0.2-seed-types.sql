@@ -1,8 +1,8 @@
 INSERT INTO RoomType (name) VALUES 
 ('Living Room'), ('Kitchen'), ('Bedroom'), ('Garage'), ('Office');
 
-INSERT INTO DeviceType (name) VALUES 
-('Smart Light'), ('Thermostat'), ('Smart Lock'), ('Security Camera');
+INSERT INTO DeviceType (name, icon) VALUES 
+('Smart Light', 'light'), ('Thermostat', 'thermostat'), ('Smart Lock', 'lock'), ('Security Camera', 'videocam');
 
 INSERT INTO Interface (name) VALUES 
 ('WiFi'), ('Ethernet'), ('ZigBee'), ('HomeAssistant');

@@ -13,7 +13,7 @@ module.exports = {
   },
   getDevicesByHouseholdId: async (householdId) => {
     const { rows } = await Database.pool.query(
-      `SELECT d.*, i.name as interfaceName, s.stateId as latestStateId, s.stateName as latestStateName, s.operationTypeName as latestOperationType, dt.icon as icon, dt.id as deviceTypeId FROM Device d 
+      `SELECT d.*, i.name as interfaceName, s.stateId as latestStateId, s.stateName as latestStateName, s.operationTypeName as latestOperationType, dt.icon as icon, dt.id as deviceTypeId, COALESCE(sensor_data.sensors, '[]'::json) as sensors FROM Device d 
       LEFT JOIN Room r ON d.roomId = r.id
       LEFT JOIN Interface i ON d.interfaceId = i.id
       LEFT JOIN DeviceType dt ON d.deviceTypeId = dt.id
@@ -24,6 +24,25 @@ module.exports = {
         INNER JOIN OperationType ot ON o.operationTypeId = ot.id
         ORDER BY o.deviceId, timestamp DESC
       ) s on s.deviceId = d.id
+      LEFT JOIN (
+        SELECT 
+          sn.deviceId,
+          json_agg(json_build_object(
+            'sensorId', sn.id,
+            'deviceId', sn.deviceId,
+            'sensorType', st.name,
+            'value', m.value,
+            'timestamp', m.timestamp
+          )) as sensors
+        FROM Sensor sn
+        JOIN SensorType st ON sn.sensorTypeId = st.id
+        LEFT JOIN (
+          SELECT DISTINCT ON (sensorId) sensorId, value, timestamp
+          FROM Measurement
+          ORDER BY sensorId, timestamp DESC
+        ) m ON m.sensorId = sn.id
+        GROUP BY sn.deviceId
+      ) sensor_data ON sensor_data.deviceId = d.id
       WHERE r.HouseholdId = $1 
         AND d.deleted = false ORDER BY d.id ASC`,
       [householdId],
@@ -89,6 +108,7 @@ module.exports = {
       SELECT * FROM vAlarmStatistics vas
       LEFT JOIN Sensor s ON vas.sensorId = s.id
       WHERE s.deviceId = $1
+      ORDER BY vas.timestamp DESC, vas.sensortype
       `,
       [id],
     );

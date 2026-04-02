@@ -1,5 +1,5 @@
 require("dotenv").config();
-
+const liveMeasurements = require("./utils/liveMeasurements");
 const express = require("express");
 const cors = require("cors");
 const Logger = require("./utils/logger");
@@ -18,4 +18,8 @@ app.use(morganMiddleware);
 
 require("./routes")(app);
 
-app.listen(3000, () => Logger.info("Server running on port 3000"));
+app.listen(3000, () => {
+  Logger.info("Server running on port 3000");
+  Logger.info("Starting live measurements");
+  liveMeasurements();
+});

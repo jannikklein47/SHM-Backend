@@ -5,8 +5,8 @@ const APIError = require("../../../utils/error");
 
 router.post("/", async (req, res, next) => {
   try {
-    const token = await AuthService.login(req, res, next);
-    return res.status(200).json(token);
+    const result = await AuthService.register(req, res, next);
+    return res.status(201).json(result);
   } catch (error) {
     if (error.statusCode) {
       return next(error);

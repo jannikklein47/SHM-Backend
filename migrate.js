@@ -32,21 +32,26 @@ async function runMigrations() {
 
   try {
     for (const file of files) {
-      console.log(`Running: ${file}...`);
-      const filePath = path.join(migrationsDir, file);
-      const sql = fs.readFileSync(filePath, "utf8");
+      try {
+        console.log(`Running: ${file}...`);
+        const filePath = path.join(migrationsDir, file);
+        const sql = fs.readFileSync(filePath, "utf8");
 
-      // Use a transaction for each file so it fails safely
-      await client.query("BEGIN");
-      await client.query(sql);
-      await client.query("COMMIT");
+        // Use a transaction for each file so it fails safely
+        await client.query("BEGIN");
+        await client.query(sql);
+        await client.query("COMMIT");
 
-      console.log(`Successfully applied ${file}`);
+        console.log(`Successfully applied ${file}`);
+      } catch (error) {
+        console.error(`Failed to apply ${file}:`, error);
+        await client.query("ROLLBACK");
+        throw error;
+      }
     }
     console.log("All migrations applied successfully.");
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error(`Migration failed at ${files[0]}:`, err);
   } finally {
     client.release();
     await db.pool.end();

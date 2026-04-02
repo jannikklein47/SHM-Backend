@@ -8,12 +8,16 @@ module.exports = {
     );
     return rows;
   },
-  createMeasurement: async (value, threshold, sensorId, client) => {
+  createMeasurement: async (value, sensorId, client) => {
     const { rows } = await client.query(
-      "INSERT INTO Measurement (value, threshold, sensorId, timestamp) VALUES ($1, $2, $3, NOW()) RETURNING *",
-      [value, threshold, sensorId],
+      "INSERT INTO Measurement (value, sensorId, timestamp) VALUES ($1, $2, NOW()) RETURNING *",
+      [value, sensorId],
     );
-    if (value >= threshold) {
+    const { rows: sensorRows } = await client.query(
+      "SELECT threshold FROM Sensor WHERE id = $1",
+      [sensorId],
+    );
+    if (value >= sensorRows[0].threshold) {
       await client.query("INSERT INTO Alarm (measurementId) VALUES ($1)", [
         rows[0].id,
       ]);

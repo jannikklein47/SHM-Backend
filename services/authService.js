@@ -45,4 +45,30 @@ module.exports = {
       accessToken: JWTtoken,
     };
   },
+
+  register: async (req, res, next) => {
+    const { username, password, name, surname } = req.body;
+
+    await Database.transaction(async (client) => {
+      const { rows } = await Database.pool.query(
+        'SELECT * FROM "User" WHERE username = $1',
+        [username],
+      );
+
+      if (rows.length > 0) {
+        throw APIError.errorUserAlreadyExists();
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      await Database.pool.query(
+        'INSERT INTO "User" (username, password, name, surname) VALUES ($1, $2, $3, $4) RETURNING *',
+        [username, hashedPassword, name, surname],
+      );
+
+      return {
+        message: "Registration successful",
+      };
+    });
+  },
 };
