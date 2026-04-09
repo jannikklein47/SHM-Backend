@@ -14,6 +14,12 @@ DB_NAME = "WAB_Test"
 
 You need to create the database yourself. It must be a PostgreSQL database. The details must be set accordingly in the .env file.
 
+To install all dependencies, run:
+
+```
+npm install
+```
+
 To create all tables and mock data, run:
 
 ```
