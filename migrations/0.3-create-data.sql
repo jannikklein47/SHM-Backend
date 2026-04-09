@@ -37,6 +37,10 @@ INSERT INTO Household (name, address) VALUES
 ('Rodriguez Manor', '369 Spruce Circle, Hub City'),
 ('Martinez Studio', '741 Ash Boulevard, Keystone City');
 
+INSERT INTO History (description, sensorId, deviceId, roomId, householdId, timestamp)
+SELECT 'Household created', NULL, NULL, NULL, h.id, CURRENT_TIMESTAMP - interval '48 hours'
+FROM Household h;
+
 -- 4. Household Assignments (Distributing the 15 users across 10 homes)
 -- Ensures every home has at least 1 manager.
 WITH Assignments AS (
@@ -63,6 +67,12 @@ FROM Assignments a
 JOIN Household h ON h.name = a.h_name
 JOIN "User" u ON u.username = a.u_name;
 
+INSERT INTO History (description, sensorId, deviceId, roomId, householdId, userId, timestamp)
+SELECT CASE WHEN ha.manages THEN 'User got assigned Admin' ELSE 'Added Member' END, NULL, NULL, NULL, h.id, u.id, CASE WHEN ha.manages THEN CURRENT_TIMESTAMP - interval '47 hours' ELSE CURRENT_TIMESTAMP - interval '45 hours' END
+FROM Household h
+JOIN HouseholdAssignment ha ON h.id = ha.householdId
+JOIN "User" u ON ha.userId = u.id;
+
 -- 5. Rooms (40 Rooms: Every household gets a Living Room, Kitchen, Bedroom, and Garage)
 INSERT INTO Room (name, householdId, roomTypeId)
 SELECT 
@@ -72,6 +82,12 @@ SELECT
 FROM Household h
 CROSS JOIN RoomType rt
 WHERE rt.name IN ('Living Room', 'Kitchen', 'Bedroom', 'Garage');
+
+INSERT INTO History (description, sensorId, deviceId, roomId, householdId, timestamp)
+SELECT 'Room created', NULL, NULL, r.id, h.id, CURRENT_TIMESTAMP - interval '47 hours'
+FROM Room r
+JOIN Household h ON r.householdId = h.id;
+
 
 -- 6. Devices (80-100 Devices distributed logically by room type)
 -- A. Smart Lights (2 per Living Room, 1 per Kitchen, 1 per Bedroom) = 40 Lights
@@ -112,6 +128,12 @@ JOIN DeviceType dt ON dt.name = 'Security Camera'
 JOIN Interface i ON i.name = 'Ethernet'
 WHERE r.name LIKE 'Garage%';
 
+INSERT INTO History (description, sensorId, deviceId, roomId, householdId, timestamp)
+SELECT 'Device created', NULL, d.id, r.id, h.id, CURRENT_TIMESTAMP - interval '46 hours'
+FROM Device d
+JOIN Room r ON d.roomId = r.id
+JOIN Household h ON r.householdId = h.id;
+
 -- 7. Sensors (Attached to Devices based on Device Logic)
 -- Thermostats get Temperature and Humidity
 INSERT INTO Sensor (deviceId, sensorTypeId, threshold)
@@ -129,6 +151,13 @@ JOIN DeviceType dt ON d.deviceTypeId = dt.id
 JOIN SensorType st ON st.name = 'Motion'
 WHERE dt.name = 'Security Camera';
 
+INSERT INTO History (description, sensorId, deviceId, roomId, householdId, timestamp)
+SELECT 'Sensor created', s.id, d.id, r.id, h.id, CURRENT_TIMESTAMP - interval '45 hours'
+FROM Sensor s
+JOIN Device d ON s.deviceId = d.id
+JOIN Room r ON d.roomId = r.id
+JOIN Household h ON r.householdId = h.id;
+
 -- 8. Operations (Attached to Devices based on Device Logic)
 -- Smart Lights get Power (On/Off) and Brightness (High/Medium/Low)
 INSERT INTO Operation (deviceId, operationTypeId, stateId)
@@ -139,13 +168,21 @@ JOIN OperationType ot ON ot.name = 'Power'
 JOIN State s ON s.name = 'On' AND s.operationTypeId = ot.id
 WHERE dt.name = 'Smart Light';
 
-INSERT INTO Operation (deviceId, operationTypeId, stateId)
-SELECT d.id, ot.id, s.id
+INSERT INTO Operation (deviceId, operationTypeId, stateId, timestamp)
+SELECT d.id, ot.id, s.id, CURRENT_TIMESTAMP - interval '43 hours'
 FROM Device d
 JOIN DeviceType dt ON d.deviceTypeId = dt.id
 JOIN OperationType ot ON ot.name = 'Brightness'
 JOIN State s ON s.name = 'High' AND s.operationTypeId = ot.id
 WHERE dt.name = 'Smart Light';
+
+INSERT INTO History (description, sensorId, deviceId, roomId, householdId, timestamp)
+SELECT 'Operation committed', NULL, d.id, r.id, h.id, o.timestamp
+FROM Operation o
+JOIN Device d ON o.deviceId = d.id
+JOIN Room r ON d.roomId = r.id
+JOIN Household h ON r.householdId = h.id;
+
 
 -- 9. Measurements (1,000+ Measurements over the last 48 hours)
 INSERT INTO Measurement (sensorId, value, timestamp)
@@ -214,28 +251,7 @@ FROM Measurement m
 LEFT JOIN Sensor s ON m.sensorId = s.id
 WHERE m.value > s.threshold;
 
--- 11. History Logs (150-200 entries spread over the last 14 days)
--- We use a CTE to generate 15 random events per household (10 homes * 15 = 150 events)
-WITH RandomEvents AS (
-    SELECT 
-        ha.householdId,
-        ha.userId,
-        CURRENT_TIMESTAMP - (random() * interval '14 days') as event_time,
-        floor(random() * 5)::int as event_type
-    FROM HouseholdAssignment ha
-    CROSS JOIN generate_series(1, 15)
-    WHERE ha.manages = true -- Log events mainly for the household managers
-)
-INSERT INTO History (description, timestamp, userId, householdId)
-SELECT 
-    CASE event_type
-        WHEN 0 THEN 'User unlocked the front door via mobile app.'
-        WHEN 1 THEN 'Motion detected in Garage.'
-        WHEN 2 THEN 'System update completed successfully.'
-        WHEN 3 THEN 'Thermostat adjusted schedule for away mode.'
-        ELSE 'Living room lights automatically dimmed.'
-    END,
-    event_time,
-    userId,
-    householdId
-FROM RandomEvents;
+
+
+
+
